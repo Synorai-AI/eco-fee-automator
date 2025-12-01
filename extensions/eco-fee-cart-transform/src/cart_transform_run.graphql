@@ -1,0 +1,32 @@
+query Input {
+  cart {
+    lines {
+      id
+      quantity
+
+      cost {
+        amountPerQuantity {
+          amount
+        }
+      }
+
+      merchandise {
+        __typename
+        ... on ProductVariant {
+          product {
+            title
+
+            hasEcoAbComputers: hasAnyTag(tags: ["eco-ab-computers"])
+            hasEcoAbLaptops: hasAnyTag(tags: ["eco-ab-laptops"])
+            hasEcoAbPrinters: hasAnyTag(tags: ["eco-ab-printers"])
+            hasEcoAbSmallAppliances: hasAnyTag(tags: ["eco-ab-small-appliances"])
+            hasEcoAbAv: hasAnyTag(tags: ["eco-ab-av"])
+            hasEcoAbTools: hasAnyTag(tags: ["eco-ab-tools"])
+            hasEcoAbMonitorSmall: hasAnyTag(tags: ["eco-ab-monitor-small"])
+            hasEcoAbMonitorLarge: hasAnyTag(tags: ["eco-ab-monitor-large"])
+          }
+        }
+      }
+    }
+  }
+}
