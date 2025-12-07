@@ -1,4 +1,4 @@
-# Alberta Eco Fee (EHF) – Eco-Fee Transformer
+# Eco-Fee-Automator
 
 Automatically apply Alberta environmental handling fees (EHF / eco-fees) to eligible products at checkout using a Shopify Cart Transform Function.
 
