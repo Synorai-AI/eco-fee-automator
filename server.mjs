@@ -3,7 +3,6 @@ import {
   shopifyApp,
   ShopifyExpress,
 } from "@shopify/shopify-app-express";
-import { LATEST_API_VERSION } from "@shopify/shopify-api";
 
 const {
   SHOPIFY_API_KEY,
@@ -13,7 +12,6 @@ const {
 } = process.env;
 
 if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET || !SHOPIFY_SCOPES || !SHOPIFY_APP_URL) {
-  // Log a clear message if env vars are missing
   console.error("Missing required Shopify environment variables.");
   console.error("Ensure SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_SCOPES, and SHOPIFY_APP_URL are set.");
   process.exit(1);
@@ -26,7 +24,8 @@ const shopify = shopifyApp({
   api: {
     apiKey: SHOPIFY_API_KEY,
     apiSecretKey: SHOPIFY_API_SECRET,
-    apiVersion: LATEST_API_VERSION,
+    // Use a fixed recent API version string instead of LATEST_API_VERSION
+    apiVersion: "2025-01",
     scopes: SHOPIFY_SCOPES.split(",").map((s) => s.trim()),
     hostScheme: "https",
     hostName: SHOPIFY_APP_URL.replace(/^https?:\/\//, ""),
@@ -64,7 +63,7 @@ app.get("/", (_req, res) => {
       <body style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 2rem;">
         <h1>Eco Fee Automator backend is running ✅</h1>
         <p>This is the backend for the Eco Fee Automator Shopify app.</p>
-        <p>Use <code>/auth?shop=&lt;your-store>.myshopify.com</code> to start the install flow.</p>
+        <p>Use <code>/auth?shop=&lt;your-store&gt;.myshopify.com</code> to start the install flow.</p>
       </body>
     </html>
   `);
