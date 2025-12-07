@@ -2,8 +2,9 @@
   "name": "eco-fee-transformer",
   "private": true,
   "scripts": {
-    "build": "react-router build",
     "dev": "shopify app dev",
+    "build": "shopify app build",
+    "set-tunnel": "node ./scripts/set-tunnel.cjs",
     "config:link": "shopify app config link",
     "generate": "shopify app generate",
     "deploy": "shopify app deploy",

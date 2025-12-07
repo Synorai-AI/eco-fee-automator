@@ -1,0 +1,37 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "24dafd9eab0624041ceb3760fbdb708e"
+name = "Alberta Eco Fee"
+application_url = "{{TUNNEL_URL}}"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+
+[webhooks]
+api_version = "2026-01"
+
+  # Regular app webhooks
+  [[webhooks.subscriptions]]
+  topics = ["app/uninstalled"]
+  uri = "{{TUNNEL_URL}}/webhooks"
+
+  [[webhooks.subscriptions]]
+  topics = ["app/scopes_update"]
+  uri = "{{TUNNEL_URL}}/webhooks"
+
+  # GDPR compliance webhooks (REQUIRED FOR CHECKS)
+  [[webhooks.subscriptions]]
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+  uri = "{{TUNNEL_URL}}/webhooks/compliance"
+
+
+[access_scopes]
+scopes = "write_cart_transforms"
+
+[auth]
+redirect_urls = [
+  "{{TUNNEL_URL}}/auth/callback",
+  "{{TUNNEL_URL}}/api/auth",
+  "{{TUNNEL_URL}}/auth/*",
+]

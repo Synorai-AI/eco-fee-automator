@@ -10,7 +10,7 @@ description = "t:description"
   [[extensions.targeting]]
   target = "cart.transform.run"
   input_query = "src/cart_transform_run.graphql"
-  export = "cart-transform-run"
+  export = "run"
 
   [extensions.build]
   command = ""

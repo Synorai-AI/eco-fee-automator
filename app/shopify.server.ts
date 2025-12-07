@@ -3,6 +3,7 @@ import {
   ApiVersion,
   AppDistribution,
   shopifyApp,
+  DeliveryMethod,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
@@ -19,6 +20,26 @@ const shopify = shopifyApp({
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
+
+  // ✅ Mandatory compliance webhooks
+  webhooks: {
+    APP_UNINSTALLED: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/app/uninstalled",
+    },
+    APP_SCOPES_UPDATE: {
+      deliveryMethod: DeliveryMethod.Http,
+      callbackUrl: "/webhooks/app/scopes_update",
+    },
+  },
+
+  // ✅ Actually register webhooks for each shop after auth
+  hooks: {
+    afterAuth: async ({ session }) => {
+      // This creates the shop-specific webhook subscriptions for the topics above
+      await shopify.registerWebhooks({ session });
+    },
+  },
 });
 
 export default shopify;

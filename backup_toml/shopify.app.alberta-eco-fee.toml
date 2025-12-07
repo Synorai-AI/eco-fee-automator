@@ -1,0 +1,25 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "24dafd9eab0624041ceb3760fbdb708e"
+name = "Alberta Eco Fee"
+application_url = "https://yield-ted-yeah-safer.trycloudflare.com"
+embedded = true
+
+[webhooks]
+api_version = "2026-01"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "write_cart_transforms"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://yield-ted-yeah-safer.trycloudflare.com/auth/callback",
+  "https://yield-ted-yeah-safer.trycloudflare.com/api/auth",
+  "https://yield-ted-yeah-safer.trycloudflare.com/auth/*"
+]
+
+[build]
+automatically_update_urls_on_dev = true
