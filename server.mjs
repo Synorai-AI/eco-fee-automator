@@ -1,8 +1,7 @@
 import express from "express";
-import {
-  shopifyApp,
-  ShopifyExpress,
-} from "@shopify/shopify-app-express";
+import shopifyAppPkg from "@shopify/shopify-app-express";
+
+const { shopifyApp } = shopifyAppPkg;
 
 const {
   SHOPIFY_API_KEY,
@@ -19,12 +18,12 @@ if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET || !SHOPIFY_SCOPES || !SHOPIFY_APP_U
 
 const PORT = process.env.PORT || 3000;
 
-// Initialize the Shopify app configuration
+// Configure the Shopify app
 const shopify = shopifyApp({
   api: {
     apiKey: SHOPIFY_API_KEY,
     apiSecretKey: SHOPIFY_API_SECRET,
-    // Use a fixed recent API version string instead of LATEST_API_VERSION
+    // Fixed recent Admin API version
     apiVersion: "2025-01",
     scopes: SHOPIFY_SCOPES.split(",").map((s) => s.trim()),
     hostScheme: "https",
@@ -41,16 +40,21 @@ const shopify = shopifyApp({
 
 const app = express();
 
-// Mount Shopify auth routes
-const shopifyExpress = ShopifyExpress(shopify);
+// OAuth start
+app.get(shopify.config.auth.path, shopify.auth.begin());
 
-// This sets up:
-//   GET /auth           → starts OAuth
-//   GET /auth/callback  → completes OAuth
-//   POST /webhooks      → webhooks endpoint
-app.use("/auth", shopifyExpress.auth);
-app.use("/auth/callback", shopifyExpress.authCallback);
-app.use("/webhooks", shopifyExpress.webhooks);
+// OAuth callback
+app.get(
+  shopify.config.auth.callbackPath,
+  shopify.auth.callback(),
+  shopify.redirectToShopifyOrAppRoot(),
+);
+
+// Webhooks endpoint (no handlers yet, but required)
+app.post(
+  shopify.config.webhooks.path,
+  shopify.processWebhooks({ webhookHandlers: {} }),
+);
 
 // Simple landing / health route
 app.get("/", (_req, res) => {
