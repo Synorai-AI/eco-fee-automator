@@ -76,3 +76,26 @@ app.get("/", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Eco Fee Automator backend listening on port ${PORT}`);
 });
+
+// Privacy Policy Route
+app.get("/privacy", (req, res) => {
+  res.send(`
+    <html>
+      <head>
+        <title>Privacy Policy - Synorai Inc.</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; max-width: 900px; margin: auto; }
+          h1, h2 { color: #222; }
+        </style>
+      </head>
+      <body>
+        <h1>Privacy Policy</h1>
+        <p><strong>Last updated:</strong> March 2025</p>
+        <p><strong>Company:</strong> Synorai Inc.</p>
+        <p><strong>App:</strong> Eco Fee Automator</p>
+        <hr />
+        <p>(Insert the full policy text here)</p>
+      </body>
+    </html>
+  `);
+});

@@ -1,8 +1,8 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "0254a415202f3c6640f2e5449705c476"
-name = "Alberta Eco Fee"
-application_url = "https://example.com"
+name = "Eco Fee Automator"
+application_url = "https://eco-fee-automator.onrender.com"
 embedded = true
 
 [webhooks]
@@ -15,10 +15,12 @@ optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-redirect_urls = [ "https://example.com" ]
+# This must match the OAuth callback URL we told Shopify in the Partner Dashboard
+redirect_urls = [ "https://eco-fee-automator.onrender.com/auth/callback" ]
 
 [app_preferences]
-url = "https://example.com"
+# Where merchants land if they click your app in the admin (we’ll use the root for now)
+url = "https://eco-fee-automator.onrender.com/"
 
 [build]
 automatically_update_urls_on_dev = true
