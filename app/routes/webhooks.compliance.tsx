@@ -1,14 +1,19 @@
-import type { ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { authenticate } from "../shopify.server";
 
+// Simple GET handler so we can confirm the route exists in a browser
+export async function loader({ request }: LoaderFunctionArgs) {
+  return new Response("Synorai EcoCharge compliance webhook endpoint", {
+    status: 200,
+    headers: { "Content-Type": "text/plain" },
+  });
+}
+
 export async function action({ request }: ActionFunctionArgs) {
-  // authenticate.webhook will:
-  // - return a Response (e.g. 401) if verification fails
-  // - return { topic, shop, payload } if verification succeeds
   const authResult = await authenticate.webhook(request);
 
-  // If we got a Response back, it's already the correct status (401, etc.)
-  // Just return it directly so Shopify sees the proper HTTP code.
+  // If authenticate.webhook returns a Response (e.g. 401 on bad HMAC),
+  // just return it directly so Shopify sees the correct status.
   if (authResult instanceof Response) {
     return authResult;
   }
