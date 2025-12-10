@@ -9,30 +9,30 @@ embedded = true
 api_version = "2025-10"
 
   # --- Mandatory compliance (GDPR) webhooks ---
+  # All three topics go to the same /webhooks/compliance endpoint,
+  # which is handled by app/routes/webhooks.compliance.tsx
+
   [[webhooks.subscriptions]]
   topic = "customers/data_request"
-  uri   = "https://eco-fee-automator.onrender.com/webhooks/customers/data_request"
+  uri   = "https://eco-fee-automator.onrender.com/webhooks/compliance"
 
   [[webhooks.subscriptions]]
   topic = "customers/redact"
-  uri   = "https://eco-fee-automator.onrender.com/webhooks/customers/redact"
+  uri   = "https://eco-fee-automator.onrender.com/webhooks/compliance"
 
   [[webhooks.subscriptions]]
   topic = "shop/redact"
-  uri   = "https://eco-fee-automator.onrender.com/webhooks/shop/redact"
+  uri   = "https://eco-fee-automator.onrender.com/webhooks/compliance"
 
 [access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "write_cart_transforms,write_products"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
 [auth]
-# This must match the OAuth callback URL we told Shopify in the Partner Dashboard
 redirect_urls = [ "https://eco-fee-automator.onrender.com/auth/callback" ]
 
 [app_preferences]
-# Where merchants land if they click your app in the admin
 url = "https://eco-fee-automator.onrender.com/"
 
 [build]
