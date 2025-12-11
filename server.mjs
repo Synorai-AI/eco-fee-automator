@@ -27,7 +27,7 @@ const shopify = shopifyApp({
   api: {
     apiKey: SHOPIFY_API_KEY,
     apiSecretKey: SHOPIFY_API_SECRET,
-    apiVersion: "2025-01", // supported stable Admin API version 
+    apiVersion: "2025-01",
     scopes: SHOPIFY_SCOPES.split(",").map((s) => s.trim()),
     hostScheme: "https",
     hostName: SHOPIFY_APP_URL.replace(/^https?:\/\//, ""),
@@ -78,9 +78,8 @@ app.get(shopify.config.auth.path, shopify.auth.begin());
 /**
  * OAuth callback + Cart Transform auto-registration.
  *
- * Important: we follow the official pattern:
+ * Pattern:
  *   app.get(callbackPath, shopify.auth.callback(), ourMiddleware, shopify.redirectToShopifyOrAppRoot())
- * so that res.locals.shopify.session is populated by the library first. 
  */
 app.get(
   shopify.config.auth.callbackPath,
@@ -101,7 +100,7 @@ app.get(
 
       if (!session) {
         console.error("❌ No Shopify session found in auth callback");
-        return next(); // still let redirect middleware run, but we know transform won't register
+        return next();
       }
 
       try {
@@ -141,9 +140,12 @@ app.get(
           },
         });
 
-        const payload = response?.body?.data?.cartTransformCreate;
+        console.log(
+          "[CART TRANSFORM] Raw response body:",
+          JSON.stringify(response?.body, null, 2),
+        );
 
-        console.log("[CART TRANSFORM] Raw response body:", JSON.stringify(response?.body, null, 2));
+        const payload = response?.body?.data?.cartTransformCreate;
 
         if (!payload) {
           console.error("❌ cartTransformCreate returned no payload");
@@ -162,7 +164,6 @@ app.get(
         console.error("❌ Error calling cartTransformCreate:", err);
       }
 
-      // Continue to the redirect middleware
       return next();
     } catch (error) {
       console.error("❌ Error in auth callback middleware:", error);
@@ -185,7 +186,7 @@ app.post(
  */
 app.post(
   "/webhooks/compliance",
-  express.text({ type: "*/*" }), // capture raw body for HMAC
+  express.text({ type: "*/*" }),
   (req, res) => {
     const isValid = verifyShopifyHmac(req);
 
@@ -207,7 +208,8 @@ app.post(
  * Simple landing / health route
  */
 app.get("/", (_req, res) => {
-  res.send(`
+  res.send(
+    `
     <html>
       <head>
         <title>Synorai EcoCharge</title>
@@ -219,17 +221,20 @@ app.get("/", (_req, res) => {
         <p>Use <code>/auth?shop=&lt;your-store&gt;.myshopify.com</code> to start the install flow.</p>
       </body>
     </html>
-  `);
+    `.trim(),
+  );
 });
 
 /**
  * Privacy Policy Route
  */
 app.get("/privacy", (req, res) => {
-  res.send(`
+  res.send(
+    `
     <html>
       <head>
         <title>Privacy Policy - Synorai Inc.</title>
+        <meta charset="utf-8" />
         <style>
           body { font-family: Arial, sans-serif; padding: 40px; max-width: 900px; margin: auto; }
           h1, h2 { color: #222; }
@@ -242,42 +247,20 @@ app.get("/privacy", (req, res) => {
         <p><strong>App:</strong> Synorai EcoCharge</p>
         <hr />
         <h2>1. Information We Collect</h2>
-        <h3>Merchant Data</h3>
-        <p>
-          When you install the App, Shopify automatically provides us with access to your store’s domain,
-          shop ID, basic shop metadata, and product tags. We use this information solely to apply
-          environmental handling fees to products using Shopify Functions.
-        </p>
+        <p>We access limited store and product information solely to apply environmental handling fees using Shopify Functions.</p>
+        <h2>2. Customer Data</h2>
+        <p>The app does not access or store customer personal data.</p>
+        <h2>3. Data Storage</h2>
+        <p>We do not store merchant or customer data outside Shopify infrastructure.</p>
+        <h2>4. Contact</h2>
+        <p>Email: synoraiai@gmail.com – Alberta, Canada</p>
+      </body>
+    </html>
+    `.trim(),
+  );
+});
 
-        <p>We do not collect or store:</p>
-        <ul>
-          <li>Customer names</li>
-          <li>Customer addresses</li>
-          <li>Customer emails</li>
-          <li>Order information</li>
-          <li>Payment information</li>
-        </ul>
+app.listen(PORT, () => {
+  console.log(`Synorai EcoCharge backend listening on port ${PORT}`);
+});
 
-        <h3>Customer Data</h3>
-        <p>
-          The App does not access, collect, store, or process any customer personal data.
-        </p>
-
-        <h3>Product Data</h3>
-        <p>
-          We read product tags to determine whether environmental fees apply. No product data is stored outside Shopify.
-        </p>
-
-        <h2>2. How We Use the Information</h2>
-        <p>
-          We use store and product information only to identify product tags and apply the correct environmental handling
-          fees via Shopify Functions. We do not use this information for analytics, marketing, or any other purpose.
-        </p>
-
-        <h2>3. Data Storage & Security</h2>
-        <p>
-          We do not store merchant or customer data on external servers. All processing occurs within Shopify’s secure
-          infrastructure. Our Render-hosted backend only confirms that the App is online, and does not store any data.
-        </p>
-
-        <h2>4. Sharing Your Data
