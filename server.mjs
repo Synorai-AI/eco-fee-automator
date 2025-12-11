@@ -9,24 +9,25 @@ const {
   SHOPIFY_API_SECRET,
   SHOPIFY_SCOPES,
   SHOPIFY_APP_URL,
+  PORT: ENV_PORT,
 } = process.env;
 
 if (!SHOPIFY_API_KEY || !SHOPIFY_API_SECRET || !SHOPIFY_SCOPES || !SHOPIFY_APP_URL) {
-  console.error("Missing required Shopify environment variables.");
+  console.error("❌ Missing required Shopify environment variables.");
   console.error(
     "Ensure SHOPIFY_API_KEY, SHOPIFY_API_SECRET, SHOPIFY_SCOPES, and SHOPIFY_APP_URL are set.",
   );
   process.exit(1);
 }
 
-const PORT = process.env.PORT || 3000;
+const PORT = ENV_PORT || 3000;
 
-// Configure the Shopify app
+// Core Shopify app configuration
 const shopify = shopifyApp({
   api: {
     apiKey: SHOPIFY_API_KEY,
     apiSecretKey: SHOPIFY_API_SECRET,
-    apiVersion: "2025-01",
+    apiVersion: "2025-01", // supported stable Admin API version 
     scopes: SHOPIFY_SCOPES.split(",").map((s) => s.trim()),
     hostScheme: "https",
     hostName: SHOPIFY_APP_URL.replace(/^https?:\/\//, ""),
@@ -42,7 +43,9 @@ const shopify = shopifyApp({
 
 const app = express();
 
-// --- Helper: verify Shopify webhook HMAC for /webhooks/compliance ---
+/**
+ * Helper: verify Shopify webhook HMAC for /webhooks/compliance
+ */
 function verifyShopifyHmac(req) {
   const hmacHeader = req.get("X-Shopify-Hmac-Sha256");
   if (!hmacHeader || !SHOPIFY_API_SECRET) {
@@ -66,85 +69,120 @@ function verifyShopifyHmac(req) {
   }
 }
 
-// OAuth start
+/**
+ * OAuth start
+ * /auth?shop=<shop>.myshopify.com
+ */
 app.get(shopify.config.auth.path, shopify.auth.begin());
 
-// OAuth callback + auto Cart Transform registration
+/**
+ * OAuth callback + Cart Transform auto-registration.
+ *
+ * Important: we follow the official pattern:
+ *   app.get(callbackPath, shopify.auth.callback(), ourMiddleware, shopify.redirectToShopifyOrAppRoot())
+ * so that res.locals.shopify.session is populated by the library first. 
+ */
 app.get(
   shopify.config.auth.callbackPath,
+  shopify.auth.callback(),
   async (req, res, next) => {
     try {
-      // Let Shopify do its normal auth callback handling first
-      await shopify.auth.callback()(req, res, next);
-
       const locals = res.locals.shopify || {};
       const session = locals.session;
 
+      console.log("[AUTH CALLBACK] reached");
+      console.log("[AUTH CALLBACK] res.locals.shopify:", {
+        hasShopifyLocals: !!locals,
+        hasSession: !!session,
+        shop: session?.shop,
+        isOnline: session?.isOnline,
+        scope: session?.scope,
+      });
+
       if (!session) {
         console.error("❌ No Shopify session found in auth callback");
-      } else {
-        try {
-          // Use this shop's session to register the cart transform
-          const client = new shopify.api.clients.Graphql({ session });
-
-          const mutation = `
-            mutation CartTransformCreate {
-              cartTransformCreate(
-                functionHandle: "eco-fee-cart-transform",
-                blockOnFailure: false
-              ) {
-                cartTransform {
-                  id
-                  functionId
-                }
-                userErrors {
-                  field
-                  message
-                }
-              }
-            }
-          `;
-
-          const result = await client.request({ data: mutation });
-          const payload = result?.cartTransformCreate;
-
-          if (!payload) {
-            console.error(
-              "❌ cartTransformCreate returned no payload",
-              JSON.stringify(result, null, 2),
-            );
-          } else if (payload.userErrors && payload.userErrors.length > 0) {
-            console.error(
-              "❌ cartTransformCreate userErrors:",
-              JSON.stringify(payload.userErrors, null, 2),
-            );
-          } else {
-            console.log("✅ Cart transform registered for shop:", {
-              shop: session.shop,
-              cartTransform: payload.cartTransform,
-            });
-          }
-        } catch (err) {
-          console.error("❌ Error calling cartTransformCreate:", err);
-        }
+        return next(); // still let redirect middleware run, but we know transform won't register
       }
 
-      // After auth + transform registration, send merchant to app home
-      await shopify.redirectToShopifyOrAppRoot()(req, res, next);
+      try {
+        // GraphQL Admin client using this shop's session
+        const client = new shopify.api.clients.Graphql({ session });
+
+        const mutation = `
+          mutation CartTransformCreate(
+            $functionHandle: String!
+            $blockOnFailure: Boolean!
+          ) {
+            cartTransformCreate(
+              functionHandle: $functionHandle
+              blockOnFailure: $blockOnFailure
+            ) {
+              cartTransform {
+                id
+                functionId
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        console.log("[CART TRANSFORM] Registering transform for shop:", session.shop);
+
+        const response = await client.query({
+          data: {
+            query: mutation,
+            variables: {
+              functionHandle: "eco-fee-cart-transform",
+              blockOnFailure: false,
+            },
+          },
+        });
+
+        const payload = response?.body?.data?.cartTransformCreate;
+
+        console.log("[CART TRANSFORM] Raw response body:", JSON.stringify(response?.body, null, 2));
+
+        if (!payload) {
+          console.error("❌ cartTransformCreate returned no payload");
+        } else if (payload.userErrors && payload.userErrors.length > 0) {
+          console.error(
+            "❌ cartTransformCreate userErrors:",
+            JSON.stringify(payload.userErrors, null, 2),
+          );
+        } else {
+          console.log("✅ Cart transform registered for shop:", {
+            shop: session.shop,
+            cartTransform: payload.cartTransform,
+          });
+        }
+      } catch (err) {
+        console.error("❌ Error calling cartTransformCreate:", err);
+      }
+
+      // Continue to the redirect middleware
+      return next();
     } catch (error) {
-      console.error("❌ Error in auth callback:", error);
-      next(error);
+      console.error("❌ Error in auth callback middleware:", error);
+      return next(error);
     }
   },
+  shopify.redirectToShopifyOrAppRoot(),
 );
 
-// Webhooks endpoint (general webhooks – none configured yet)
+/**
+ * Webhooks endpoint (general webhooks – currently none configured)
+ */
 app.post(
   shopify.config.webhooks.path,
   shopify.processWebhooks({ webhookHandlers: {} }),
 );
 
-// --- Mandatory GDPR compliance webhook endpoint ---
+/**
+ * Mandatory GDPR compliance webhook endpoint
+ */
 app.post(
   "/webhooks/compliance",
   express.text({ type: "*/*" }), // capture raw body for HMAC
@@ -165,7 +203,9 @@ app.post(
   },
 );
 
-// Simple landing / health route
+/**
+ * Simple landing / health route
+ */
 app.get("/", (_req, res) => {
   res.send(`
     <html>
@@ -182,7 +222,9 @@ app.get("/", (_req, res) => {
   `);
 });
 
-// Privacy Policy Route
+/**
+ * Privacy Policy Route
+ */
 app.get("/privacy", (req, res) => {
   res.send(`
     <html>
@@ -238,41 +280,4 @@ app.get("/privacy", (req, res) => {
           infrastructure. Our Render-hosted backend only confirms that the App is online, and does not store any data.
         </p>
 
-        <h2>4. Sharing Your Data</h2>
-        <p>
-          We do not share merchant or customer data with third parties, advertising networks, analytics services, or
-          affiliates. The only systems involved are Shopify and Render. Render does not handle any personal data.
-        </p>
-
-        <h2>5. Data Retention</h2>
-        <p>
-          Because we do not store personal or business data, there is no retained information. Uninstalling the App
-          immediately revokes all permissions via Shopify.
-        </p>
-
-        <h2>6. Your Rights</h2>
-        <p>
-          You may request clarification about how your data is used or uninstall the App at any time to revoke access.
-          You may also contact us with any privacy-related inquiries.
-        </p>
-
-        <h2>7. Changes to the Policy</h2>
-        <p>
-          We may update this Policy periodically. Any updates will be posted to this page and marked with a revised
-          “Last updated” date.
-        </p>
-
-        <h2>8. Contact Us</h2>
-        <p>
-          <b>Synorai Inc.</b><br/>
-          Email: synoraiai@gmail.com <br/>
-          Alberta, Canada
-        </p>
-      </body>
-    </html>
-  `);
-});
-
-app.listen(PORT, () => {
-  console.log(`Synorai EcoCharge backend listening on port ${PORT}`);
-});
+        <h2>4. Sharing Your Data
