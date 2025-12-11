@@ -38,57 +38,6 @@ const shopify = shopifyApp({
   webhooks: {
     path: "/webhooks",
   },
-  // 🔥 After a merchant installs / logs in, automatically register the cart transform
-  hooks: {
-    afterAuth: async (req, res) => {
-      try {
-        const { session } = res.locals.shopify;
-        if (!session) {
-          console.error("No Shopify session found in afterAuth hook");
-          return;
-        }
-
-        const client = new shopify.api.clients.Graphql({ session });
-
-        const mutation = `
-          mutation CartTransformCreate {
-            cartTransformCreate(
-              functionHandle: "eco-fee-cart-transform",
-              blockOnFailure: false
-            ) {
-              cartTransform {
-                id
-                functionId
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `;
-
-        const result = await client.request({ data: mutation });
-        const payload = result?.cartTransformCreate;
-
-        if (!payload) {
-          console.error("cartTransformCreate returned no payload", result);
-          return;
-        }
-
-        if (payload.userErrors && payload.userErrors.length > 0) {
-          console.error("cartTransformCreate userErrors:", payload.userErrors);
-        } else {
-          console.log("✅ Cart transform registered for shop:", {
-            shop: session.shop,
-            cartTransform: payload.cartTransform,
-          });
-        }
-      } catch (error) {
-        console.error("Error in afterAuth cartTransformCreate:", error);
-      }
-    },
-  },
 });
 
 const app = express();
@@ -120,11 +69,73 @@ function verifyShopifyHmac(req) {
 // OAuth start
 app.get(shopify.config.auth.path, shopify.auth.begin());
 
-// OAuth callback
+// OAuth callback + auto Cart Transform registration
 app.get(
   shopify.config.auth.callbackPath,
-  shopify.auth.callback(),
-  shopify.redirectToShopifyOrAppRoot(),
+  async (req, res, next) => {
+    try {
+      // Let Shopify do its normal auth callback handling first
+      await shopify.auth.callback()(req, res, next);
+
+      const locals = res.locals.shopify || {};
+      const session = locals.session;
+
+      if (!session) {
+        console.error("❌ No Shopify session found in auth callback");
+      } else {
+        try {
+          // Use this shop's session to register the cart transform
+          const client = new shopify.api.clients.Graphql({ session });
+
+          const mutation = `
+            mutation CartTransformCreate {
+              cartTransformCreate(
+                functionHandle: "eco-fee-cart-transform",
+                blockOnFailure: false
+              ) {
+                cartTransform {
+                  id
+                  functionId
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `;
+
+          const result = await client.request({ data: mutation });
+          const payload = result?.cartTransformCreate;
+
+          if (!payload) {
+            console.error(
+              "❌ cartTransformCreate returned no payload",
+              JSON.stringify(result, null, 2),
+            );
+          } else if (payload.userErrors && payload.userErrors.length > 0) {
+            console.error(
+              "❌ cartTransformCreate userErrors:",
+              JSON.stringify(payload.userErrors, null, 2),
+            );
+          } else {
+            console.log("✅ Cart transform registered for shop:", {
+              shop: session.shop,
+              cartTransform: payload.cartTransform,
+            });
+          }
+        } catch (err) {
+          console.error("❌ Error calling cartTransformCreate:", err);
+        }
+      }
+
+      // After auth + transform registration, send merchant to app home
+      await shopify.redirectToShopifyOrAppRoot()(req, res, next);
+    } catch (error) {
+      console.error("❌ Error in auth callback:", error);
+      next(error);
+    }
+  },
 );
 
 // Webhooks endpoint (general webhooks – none configured yet)
@@ -149,8 +160,6 @@ app.post(
     const shop = req.get("X-Shopify-Shop-Domain");
 
     console.log("✅ GDPR webhook received", { topic, shop });
-
-    // Topic-specific handling could go here in the future
 
     return res.status(200).send("OK");
   },
@@ -267,4 +276,3 @@ app.get("/privacy", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Synorai EcoCharge backend listening on port ${PORT}`);
 });
-
