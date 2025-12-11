@@ -98,7 +98,6 @@ export function cartTransformRun(
         ? merchandise.product?.title ?? "Product"
         : "Product";
 
-    // Option C: emoji-spiced, clear, simple label in the title.
     // Example:
     //   "Gaming Laptop – ♻️ AB Environmental Fee $0.45/unit included"
     const ecoLabel = `♻️ AB Environmental Fee $${ecoFeePerUnit.toFixed(
