@@ -38,6 +38,57 @@ const shopify = shopifyApp({
   webhooks: {
     path: "/webhooks",
   },
+  // 🔥 After a merchant installs / logs in, automatically register the cart transform
+  hooks: {
+    afterAuth: async (req, res) => {
+      try {
+        const { session } = res.locals.shopify;
+        if (!session) {
+          console.error("No Shopify session found in afterAuth hook");
+          return;
+        }
+
+        const client = new shopify.api.clients.Graphql({ session });
+
+        const mutation = `
+          mutation CartTransformCreate {
+            cartTransformCreate(
+              functionHandle: "eco-fee-cart-transform",
+              blockOnFailure: false
+            ) {
+              cartTransform {
+                id
+                functionId
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `;
+
+        const result = await client.request({ data: mutation });
+        const payload = result?.cartTransformCreate;
+
+        if (!payload) {
+          console.error("cartTransformCreate returned no payload", result);
+          return;
+        }
+
+        if (payload.userErrors && payload.userErrors.length > 0) {
+          console.error("cartTransformCreate userErrors:", payload.userErrors);
+        } else {
+          console.log("✅ Cart transform registered for shop:", {
+            shop: session.shop,
+            cartTransform: payload.cartTransform,
+          });
+        }
+      } catch (error) {
+        console.error("Error in afterAuth cartTransformCreate:", error);
+      }
+    },
+  },
 });
 
 const app = express();
@@ -49,7 +100,6 @@ function verifyShopifyHmac(req) {
     return false;
   }
 
-  // Raw body is in req.body because we use express.text() on this route
   const body = req.body || "";
 
   const generatedHmac = crypto
@@ -84,8 +134,6 @@ app.post(
 );
 
 // --- Mandatory GDPR compliance webhook endpoint ---
-// This is the endpoint referenced in shopify.app.toml as:
-// uri = "https://eco-fee-automator.onrender.com/webhooks/compliance"
 app.post(
   "/webhooks/compliance",
   express.text({ type: "*/*" }), // capture raw body for HMAC
@@ -102,10 +150,7 @@ app.post(
 
     console.log("✅ GDPR webhook received", { topic, shop });
 
-    // You can add topic-specific handling here if desired:
-    // - customers/data_request
-    // - customers/redact
-    // - shop/redact
+    // Topic-specific handling could go here in the future
 
     return res.status(200).send("OK");
   },
@@ -222,3 +267,4 @@ app.get("/privacy", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Synorai EcoCharge backend listening on port ${PORT}`);
 });
+
