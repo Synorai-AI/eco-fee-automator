@@ -104,7 +104,6 @@ app.get(
       }
 
       try {
-        // GraphQL Admin client using this shop's session
         const client = new shopify.api.clients.Graphql({ session });
 
         const mutation = `
@@ -130,7 +129,7 @@ app.get(
 
         console.log("[CART TRANSFORM] Registering transform for shop:", session.shop);
 
-        const response = await client.query({
+        const response = await client.request({
           data: {
             query: mutation,
             variables: {
